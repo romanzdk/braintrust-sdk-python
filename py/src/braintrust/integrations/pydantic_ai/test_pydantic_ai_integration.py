@@ -2,6 +2,7 @@
 # pyright: reportUnknownMemberType=false
 # pyright: reportUnknownParameterType=false
 # pyright: reportPrivateUsage=false
+import asyncio
 import inspect
 import os
 import time
@@ -220,6 +221,7 @@ def test_audio_seconds_is_recorded_as_metadata():
     "agent_kind",
     [
         pytest.param("configured", marks=pytest.mark.vcr(cassette_name="test_agent_run_async")),
+        pytest.param("task", marks=pytest.mark.vcr(cassette_name="test_agent_run_async")),
         pytest.param("runtime_model", marks=pytest.mark.vcr(cassette_name="test_no_model_agent_run")),
         pytest.param("wrapper", marks=pytest.mark.vcr(cassette_name="test_wrapper_agent_run_is_traced")),
     ],
@@ -245,7 +247,11 @@ async def test_agent_run_async(memory_logger, agent_kind):
         agent = Agent(MODEL, model_settings=ModelSettings(**OPENAI_SETTINGS, max_tokens=50))
 
     start = time.time()
-    result = await agent.run(TEST_PROMPT, **run_kwargs)
+    if agent_kind == "task":
+        # The wrapper body only runs once the event loop drives the task, after the caller's frame is gone.
+        result = await asyncio.create_task(agent.run(TEST_PROMPT, **run_kwargs))
+    else:
+        result = await agent.run(TEST_PROMPT, **run_kwargs)
     end = time.time()
     assert "4" in str(result.output)
 

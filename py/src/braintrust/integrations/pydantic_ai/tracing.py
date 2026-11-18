@@ -134,8 +134,14 @@ def _infer_agent_name(instance: Any, kwargs: Any) -> None:
     instance._infer_name(frame)
 
 
-async def _agent_run_wrapper(wrapped: Any, instance: Any, args: Any, kwargs: Any):
+def _agent_run_wrapper(wrapped: Any, instance: Any, args: Any, kwargs: Any):
+    # Infer before returning the coroutine: with `asyncio.create_task(agent.run(...))`
+    # the caller's frame is gone by the time the coroutine starts.
     _infer_agent_name(instance, kwargs)
+    return _traced_agent_run(wrapped, instance, args, kwargs)
+
+
+async def _traced_agent_run(wrapped: Any, instance: Any, args: Any, kwargs: Any):
     input_data, metadata = _build_agent_input_and_metadata(args, kwargs, instance)
 
     with start_span(
